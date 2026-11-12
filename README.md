@@ -35,7 +35,7 @@ The application supports buyer and vendor accounts, online stores, product listi
 ### 1. Clone the Repository
 
 ```bash
-git clone YOUR_REPOSITORY_URL
+git clone https://github.com/tonyyoung2611/django-ecommerce-part2.git
 cd ecommerce_project
 ```
 
