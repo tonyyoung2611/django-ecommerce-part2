@@ -1,0 +1,106 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>
+        {% block title %}My eCommerce Store{% endblock %}
+    </title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 30px;
+        }
+
+        nav {
+            background-color: #f2f2f2;
+            padding: 15px;
+            margin-bottom: 25px;
+        }
+
+        nav a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: #0056b3;
+        }
+
+        nav form {
+            display: inline;
+        }
+
+        nav button {
+            background: none;
+            border: none;
+            color: #0056b3;
+            cursor: pointer;
+            font: inherit;
+            padding: 0;
+            margin-right: 15px;
+        }
+
+        .actions {
+            margin: 20px 0;
+        }
+
+        .actions a {
+            display: inline-block;
+            padding: 10px 15px;
+            margin-right: 10px;
+            background-color: #0056b3;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+        }
+
+        .store {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .product {
+            border-bottom: 1px solid #ccc;
+            padding: 15px 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <nav>
+        <a href="{% url 'product_list' %}">Home</a>
+        <a href="{% url 'view_cart' %}">Shopping Cart</a>
+
+        {% if user.is_authenticated %}
+
+            {% if user.profile.role == 'vendor' %}
+                <a href="{% url 'vendor_dashboard' %}">
+                    Vendor Dashboard
+                </a>
+            {% endif %}
+
+            <form action="{% url 'logout' %}" method="POST">
+                {% csrf_token %}
+                <button type="submit">Logout</button>
+            </form>
+
+            <span>Welcome, {{ user.username }}!</span>
+
+        {% else %}
+
+            <a href="{% url 'login' %}">Login</a>
+            <a href="{% url 'register' %}">Register</a>
+
+        {% endif %}
+    </nav>
+
+    <main>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+</body>
+</html>

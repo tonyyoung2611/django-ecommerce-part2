@@ -1,23 +1,27 @@
-from django.shortcuts import get_object_or_404, redirect
-from django.shortcuts import render
-from .models import Product, Store
-from django.contrib.auth.decorators import login_required
-from django.db import transaction
-from django.http import HttpResponseForbidden
-from .models import Order, OrderItem
+
+"""
+Views for the Django eCommerce application.
+
+This module handles product listings, shopping carts, checkout,
+user registration, product reviews, vendor management, and
+the Reddit feed integration.
+"""
+
 from django.contrib.auth import login
-from .forms import RegistrationForm
-from .models import Profile
+from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
-from .forms import ReviewForm
-from .models import Review
-from .forms import StoreForm
-from .forms import ProductForm
+from django.db import transaction
 from django.db.models import ProtectedError
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+
+from .forms import ProductForm, RegistrationForm, ReviewForm, StoreForm
 from .functions.reddit import get_reddit_posts
+from .models import Order, OrderItem, Product, Profile, Store
 
 
 def product_list(request):
+    """Display all available products on the storefront."""
     products = Product.objects.all()
 
     return render(
@@ -28,6 +32,7 @@ def product_list(request):
 
 
 def view_cart(request):
+    """Display products, quantities, subtotals, and the cart total."""
     cart = request.session.get('cart', {})
     cart_items = []
     total = 0
@@ -57,6 +62,7 @@ def view_cart(request):
 
 
 def add_to_cart(request, product_id):
+    """Add one product to the session cart if stock is available."""
     if request.method != 'POST':
         return redirect('product_list')
 
@@ -67,6 +73,7 @@ def add_to_cart(request, product_id):
 
     current_quantity = cart.get(product_key, 0)
 
+    # Prevent customers from adding more items than available.
     if current_quantity < product.stock:
         cart[product_key] = current_quantity + 1
         request.session['cart'] = cart
@@ -75,6 +82,7 @@ def add_to_cart(request, product_id):
 
 
 def remove_from_cart(request, product_id):
+    """Remove a product from the customer's session cart."""
     if request.method != 'POST':
         return redirect('view_cart')
 
@@ -90,25 +98,43 @@ def remove_from_cart(request, product_id):
 
 @login_required
 def checkout(request):
+    """
+    Process checkout for buyers and create an order.
+
+    Validate cart quantities and lock product records during
+    checkout to reduce the risk of overselling products.
+    """
     if request.method != 'POST':
         return redirect('view_cart')
 
-    if not hasattr(request.user, 'profile') or request.user.profile.role != 'buyer':
-        return HttpResponseForbidden("Only buyers can checkout.")
+    # Only registered buyers may complete purchases.
+    if (
+        not hasattr(request.user, 'profile')
+        or request.user.profile.role != 'buyer'
+    ):
+        return HttpResponseForbidden(
+            "Only buyers can checkout."
+        )
 
     cart = request.session.get('cart', {})
 
     if not cart:
         return redirect('view_cart')
 
+    # Keep order creation and stock updates in one transaction.
     with transaction.atomic():
         products = Product.objects.select_for_update().filter(
             id__in=cart.keys()
         )
-        product_map = {str(product.id): product for product in products}
+
+        product_map = {
+            str(product.id): product
+            for product in products
+        }
 
         total = 0
 
+        # Validate all items before creating the order.
         for product_id, quantity in cart.items():
             product = product_map.get(product_id)
 
@@ -127,6 +153,7 @@ def checkout(request):
             total=total
         )
 
+        # Record purchased items and reduce inventory.
         for product_id, quantity in cart.items():
             product = product_map[product_id]
 
@@ -140,10 +167,10 @@ def checkout(request):
             product.stock -= quantity
             product.save(update_fields=['stock'])
 
-
+    # Clear the cart after the database transaction succeeds.
     request.session['cart'] = {}
 
-    invoice = f"Thank you for your purchase!\n\n"
+    invoice = "Thank you for your purchase!\n\n"
     invoice += f"Order Number: {order.id}\n\n"
     invoice += "Items Purchased:\n"
 
@@ -156,6 +183,7 @@ def checkout(request):
 
     invoice += f"\nTotal: ${order.total}"
 
+    # Send the buyer an invoice using the configured email backend.
     send_mail(
         subject=f"Invoice for Order #{order.id}",
         message=invoice,
@@ -164,11 +192,14 @@ def checkout(request):
         fail_silently=False
     )
 
-    return redirect('order_confirmation', order_id=order.id)
-
+    return redirect(
+        'order_confirmation',
+        order_id=order.id
+    )
 
 
 def register(request):
+    """Register a new buyer or vendor and log them in."""
     if request.method == 'POST':
         form = RegistrationForm(request.POST)
 
@@ -177,6 +208,7 @@ def register(request):
             user.email = form.cleaned_data['email']
             user.save()
 
+            # Store the selected account role in the user profile.
             Profile.objects.create(
                 user=user,
                 role=form.cleaned_data['role']
@@ -196,6 +228,7 @@ def register(request):
 
 @login_required
 def order_confirmation(request, order_id):
+    """Display an order confirmation to its buyer only."""
     order = get_object_or_404(
         Order,
         id=order_id,
@@ -211,7 +244,11 @@ def order_confirmation(request, order_id):
 
 @login_required
 def add_review(request, product_id):
-    product = get_object_or_404(Product, id=product_id)
+    """Allow a signed-in user to submit a product review."""
+    product = get_object_or_404(
+        Product,
+        id=product_id
+    )
 
     if request.method == 'POST':
         form = ReviewForm(request.POST)
@@ -222,13 +259,14 @@ def add_review(request, product_id):
             review.product = product
             review.user = request.user
 
+            # Mark reviews as verified when the user purchased
+            # the product in a previous order.
             review.verified_purchase = OrderItem.objects.filter(
                 order__buyer=request.user,
                 product=product
             ).exists()
 
             review.save()
-
             return redirect('product_list')
     else:
         form = ReviewForm()
@@ -245,6 +283,7 @@ def add_review(request, product_id):
 
 @login_required
 def vendor_dashboard(request):
+    """Display stores and products owned by the current vendor."""
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -253,7 +292,9 @@ def vendor_dashboard(request):
             "Only vendors can access this page."
         )
 
-    stores = Store.objects.filter(owner=request.user)
+    stores = Store.objects.filter(
+        owner=request.user
+    )
 
     return render(
         request,
@@ -264,6 +305,7 @@ def vendor_dashboard(request):
 
 @login_required
 def create_store(request):
+    """Allow vendors to create stores under their accounts."""
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -293,6 +335,7 @@ def create_store(request):
 
 @login_required
 def create_product(request):
+    """Allow vendors to add products to stores they own."""
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -310,6 +353,7 @@ def create_product(request):
         if form.is_valid():
             product = form.save(commit=False)
 
+            # Prevent vendors from adding products to other stores.
             if product.store.owner_id != request.user.id:
                 return HttpResponseForbidden(
                     "You do not own this store."
@@ -319,7 +363,9 @@ def create_product(request):
             return redirect('vendor_dashboard')
 
     else:
-        form = ProductForm(user=request.user)
+        form = ProductForm(
+            user=request.user
+        )
 
     return render(
         request,
@@ -330,6 +376,7 @@ def create_product(request):
 
 @login_required
 def edit_product(request, product_id):
+    """Allow vendors to edit products belonging to their stores."""
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -373,33 +420,12 @@ def edit_product(request, product_id):
 
 @login_required
 def delete_product(request, product_id):
-    if (
-        not hasattr(request.user, 'profile')
-        or request.user.profile.role != 'vendor'
-    ):
-        return HttpResponseForbidden(
-            "Only vendors can delete products."
-        )
+    """
+    Allow vendors to delete their products.
 
-    product = get_object_or_404(
-        Product,
-        id=product_id,
-        store__owner=request.user
-    )
-
-    if request.method == 'POST':
-        product.delete()
-        return redirect('vendor_dashboard')
-
-    return render(
-        request,
-        'shop/delete_product.html',
-        {'product': product}
-    )
-
-
-@login_required
-def delete_product(request, product_id):
+    Products referenced by existing orders cannot be deleted
+    when protected by the database relationship.
+    """
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -420,6 +446,7 @@ def delete_product(request, product_id):
             return redirect('vendor_dashboard')
 
         except ProtectedError:
+            # Preserve products referenced by existing orders.
             return render(
                 request,
                 'shop/delete_product.html',
@@ -441,6 +468,7 @@ def delete_product(request, product_id):
 
 @login_required
 def edit_store(request, store_id):
+    """Allow vendors to edit stores belonging to their accounts."""
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -466,7 +494,9 @@ def edit_store(request, store_id):
             return redirect('vendor_dashboard')
 
     else:
-        form = StoreForm(instance=store)
+        form = StoreForm(
+            instance=store
+        )
 
     return render(
         request,
@@ -480,6 +510,11 @@ def edit_store(request, store_id):
 
 @login_required
 def delete_store(request, store_id):
+    """
+    Allow vendors to delete stores they own.
+
+    Handle protected products that belong to existing orders.
+    """
     if (
         not hasattr(request.user, 'profile')
         or request.user.profile.role != 'vendor'
@@ -500,6 +535,7 @@ def delete_store(request, store_id):
             return redirect('vendor_dashboard')
 
         except ProtectedError:
+            # Display an error instead of deleting order history.
             return render(
                 request,
                 'shop/delete_store.html',
@@ -521,6 +557,7 @@ def delete_store(request, store_id):
 
 
 def reddit_feed(request):
+    """Display Python-related Reddit posts on the Reddit feed page."""
     posts = get_reddit_posts('python')
 
     return render(

@@ -85,15 +85,18 @@ urlpatterns = [
         name='delete_store'
     ),
 
-    path(
-        'password-reset/',
-        auth_views.PasswordResetView.as_view(
-            template_name='shop/password_reset.html',
-            email_template_name='shop/password_reset_email.html',
-            success_url='/password-reset/done/'
-        ),
-        name='password_reset'
+
+path(
+    'password-reset/',
+    auth_views.PasswordResetView.as_view(
+        template_name='shop/password_reset.html',
+        email_template_name='shop/password_reset_email.html',
+        subject_template_name='shop/password_reset_subject.txt',
+        success_url='/password-reset/done/'
     ),
+    name='password_reset'
+),
+
 
     path(
         'password-reset/done/',

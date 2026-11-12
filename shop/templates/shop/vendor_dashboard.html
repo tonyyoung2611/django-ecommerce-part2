@@ -1,16 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Vendor Dashboard</title>
-</head>
-<body>
-    <h1>Vendor Dashboard</h1>
 
-    <h2>Welcome, {{ request.user.username }}!</h2>
+{% extends 'shop/base.html' %}
 
-    <h3>Your Stores</h3>
+{% block title %}Vendor Dashboard{% endblock %}
 
-    {% for store in stores %}
+{% block content %}
+
+<h1>Vendor Dashboard</h1>
+
+<h2>Welcome, {{ request.user.username }}!</h2>
+
+<div class="actions">
+    <a href="{% url 'create_store' %}">
+        + Create Store
+    </a>
+
+    <a href="{% url 'create_product' %}">
+        + Add Product
+    </a>
+</div>
+
+<h3>Your Stores</h3>
+
+{% for store in stores %}
+
+    <div class="store">
+
         <h4>{{ store.name }}</h4>
 
         <p>{{ store.description }}</p>
@@ -27,32 +41,45 @@
 
         <h5>Products</h5>
 
-        
-    {% for product in store.products.all %}
-        <p>{{ product.name }} - ${{ product.price }}</p>
+        {% for product in store.products.all %}
 
-        <a href="{% url 'edit_product' product.id %}">
-            Edit Product
-        </a>
+            <div class="product">
 
-        |
+                <p>
+                    {{ product.name }} -
+                    ${{ product.price }}
+                </p>
 
-        <a href="{% url 'delete_product' product.id %}">
-            Delete Product
-        </a>
+                <a href="{% url 'edit_product' product.id %}">
+                    Edit Product
+                </a>
 
-        <br><br>
-    {% empty %}
-        <p>No products in this store yet.</p>
-    {% endfor %}
+                |
 
-        <hr>
-    {% empty %}
-        <p>You haven't created any stores yet.</p>
-    {% endfor %}
+                <a href="{% url 'delete_product' product.id %}">
+                    Delete Product
+                </a>
 
+            </div>
+
+        {% empty %}
+
+            <p>No products in this store yet.</p>
+
+        {% endfor %}
+
+    </div>
+
+{% empty %}
+
+    <p>You haven't created any stores yet.</p>
+
+{% endfor %}
+
+<p>
     <a href="{% url 'product_list' %}">
         Back to Storefront
     </a>
-</body>
-</html>
+</p>
+
+{% endblock %}

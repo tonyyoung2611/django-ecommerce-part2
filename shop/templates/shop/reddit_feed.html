@@ -1,36 +1,35 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reddit Python Feed</title>
-</head>
-<body>
 
-    <h1>Latest Python Reddit Posts</h1>
+{% extends 'shop/base.html' %}
 
-    <p>
-        <a href="{% url 'product_list' %}">
-            Back to Store
+{% block title %}Reddit Python Feed{% endblock %}
+
+{% block content %}
+
+<h1>Latest Python Reddit Posts</h1>
+
+<p>
+    <a href="{% url 'product_list' %}">
+        Back to Store
+    </a>
+</p>
+
+<hr>
+
+{% for post in posts %}
+    <h3>
+        <a href="{{ post.url }}"
+           target="_blank"
+           rel="noopener noreferrer">
+            {{ post.title }}
         </a>
-    </p>
+    </h3>
+
+    <p>Posted by: {{ post.author }}</p>
 
     <hr>
 
-    {% for post in posts %}
-        <h3>
-            <a href="{{ post.url }}" target="_blank" rel="noopener noreferrer">
-                {{ post.title }}
-            </a>
-        </h3>
+{% empty %}
+    <p>No Reddit posts are available right now.</p>
+{% endfor %}
 
-        <p>Posted by: {{ post.author }}</p>
-
-        <hr>
-
-    {% empty %}
-        <p>No Reddit posts are available right now.</p>
-    {% endfor %}
-
-</body>
-</html>
+{% endblock %}

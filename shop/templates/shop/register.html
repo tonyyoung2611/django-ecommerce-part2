@@ -1,29 +1,33 @@
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Create an Account</title>
-</head>
-<body>
-    <h1>Create an Account</h1>
+{% extends 'shop/base.html' %}
 
-    <h2>Register as a Buyer or Vendor</h2>
+{% block title %}Create an Account{% endblock %}
 
-    <form method="POST">
-        {% csrf_token %}
+{% block content %}
 
-        {{ form.as_p }}
+<h1>Create an Account</h1>
 
-        <button type="submit">Register</button>
-    </form>
+<h2>Register as a Buyer or Vendor</h2>
 
-    <p>
-        Already have an account?
-        <a href="{% url 'login' %}">Login here</a>
-    </p>
+<form method="POST">
+    {% csrf_token %}
 
+    {{ form.as_p }}
+
+    <button type="submit">Register</button>
+</form>
+
+<p>
+    Already have an account?
+    <a href="{% url 'login' %}">
+        Login here
+    </a>
+</p>
+
+<p>
     <a href="{% url 'product_list' %}">
         Back to Store
     </a>
-</body>
-</html>
+</p>
+
+{% endblock %}

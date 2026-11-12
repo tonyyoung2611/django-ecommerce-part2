@@ -1,30 +1,32 @@
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Write a Product Review</title>
-</head>
-<body>
-    <h1>Write a Review</h1>
+{% extends 'shop/base.html' %}
 
-    <h2>{{ product.name }}</h2>
+{% block title %}Write a Product Review{% endblock %}
 
-    <form method="POST">
-        {% csrf_token %}
+{% block content %}
 
-        {{ form.as_p }}
+<h1>Write a Review</h1>
 
-        <button type="submit">
-            Submit Review
-        </button>
-    </form>
+<h2>{{ product.name }}</h2>
 
-    <p>
-        Rate this product from 1 to 5.
-    </p>
+<form method="POST">
+    {% csrf_token %}
 
+    {{ form.as_p }}
+
+    <button type="submit">
+        Submit Review
+    </button>
+</form>
+
+<p>
+    Rate this product from 1 to 5.
+</p>
+
+<p>
     <a href="{% url 'product_list' %}">
         Back to Store
     </a>
-</body>
-</html>
+</p>
+
+{% endblock %}
